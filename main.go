@@ -13,12 +13,14 @@ import (
 )
 
 var server *httptools.WebSocketServer
-var minutes int
+var timeout int
 var presentations []string
 var presentation int = -1
-var presentationStart time.Time = time.Time{}
-
-const AUTOSTART bool = false
+var autostart bool = false
+var currentTime = 0
+var ticker *time.Ticker
+var running = false
+var done = make(chan bool)
 
 func main() {
 	//Get TXT path
@@ -54,7 +56,7 @@ func main() {
 	}
 
 	//Get time
-	minutes, err = strconv.Atoi(strings.TrimSuffix(string(minutesString), "\n"))
+	timeout, err = strconv.Atoi(strings.TrimSuffix(string(minutesString), "\n"))
 	if err != nil {
 		fmt.Println("Cant get duration: " + err.Error())
 		return
@@ -65,76 +67,143 @@ func main() {
 	server = httptools.NewWebSocketServer(
 		"127.0.0.1:8080",
 		func(conn *httptools.WebSocketServerConn, data []byte, status webtools.NetworkStatus, isBinary bool) {
-			sendStatus(conn)
+			sendStatus()
 		},
 		func(server *httptools.Server, w http.ResponseWriter, r *http.Request, params map[string]string) bool {
 			return false
 		},
-		"./", false, true, true)
+		"./", false, false, false)
 	go server.Start()
 	time.Sleep(time.Second * 5)
 
 	//Start input loop
 	for server.IsAlive() {
 		//Get command
-		commandBytes, err := webtools.ReadLineFromConsole("Enter command [stop-sv/next(n)/refresh/start/stop/zero]: ")
+		commandBytes, err := webtools.ReadLineFromConsole("Enter command [stop-sv/back(b)/next(n)/update(u)/start(s)/pause(p)/reset(r)/autostart(a)]: ")
 		if err != nil {
 			fmt.Println("Invalid command input: " + err.Error())
 			break
 		}
 		command := strings.TrimSuffix(string(commandBytes), "\n")
 		if command == "stop-sv" {
-			//Stop clients
-			server.BroadcastToClients(nil, []byte("stop|stop"))
 			break
+		} else if command == "back" || command == "b" {
+			//Prev client
+			presentation--
+			if presentation < -1 {
+				presentation = -1
+			}
+			reset(true)
+			if autostart {
+				start()
+			}
+			sendStatus()
+			continue
 		} else if command == "next" || command == "n" {
 			//Next client
 			presentation++
-			presentationStart = time.Now()
-			for _, conn := range server.FilterClients(nil) {
-				sendStatus(conn)
+			reset(true)
+			if autostart {
+				start()
 			}
-		} else if command == "refresh" {
+			sendStatus()
+			continue
+		} else if command == "update" || command == "u" {
 			//Refresh clients
-			for _, conn := range server.FilterClients(nil) {
-				sendStatus(conn)
+			sendStatus()
+			continue
+		} else if command == "start" || command == "s" {
+			start()
+			continue
+		} else if command == "reset" || command == "r" {
+			wasRunning := running
+			reset(true)
+			if wasRunning {
+				start()
 			}
-		} else if command == "start" {
-			server.BroadcastToClients(nil, []byte("start|start"))
-		} else if command == "stop" {
-			server.BroadcastToClients(nil, []byte("stop|stop"))
-		} else if command == "zero" {
-			server.BroadcastToClients(nil, []byte("zero|zero"))
+			continue
+		} else if command == "pause" || command == "p" {
+			if ticker != nil {
+				ticker.Stop()
+			}
+			running = false
+			sendStatus()
+			continue
+		} else if command == "autostart" || command == "a" {
+			autostart = !autostart
+			fmt.Println("Autostart is now: " + webtools.FormatByBool(autostart, "ENABLED", "DISABLED") + ".")
+			continue
 		}
 	}
 	server.Stop()
 }
 
-func sendStatus(conn *httptools.WebSocketServerConn) {
-	//Send timeout
-	conn.Send([]byte("timeout|" + strconv.Itoa(minutes*60*1000)))
+func start() {
+	ticker = time.NewTicker(time.Second)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				{
+					currentTime++
+					sendStatus()
+				}
+			case <-done:
+				{
+					return
+				}
+			}
+		}
+	}()
+	running = true
+	sendStatus()
+}
 
-	//Send presentation start
-	if !presentationStart.IsZero() {
-		conn.Send([]byte("current-start|" + presentationStart.Format(time.RFC3339)))
+func reset(report bool) {
+	if ticker != nil {
+		ticker.Stop()
 	}
-
+	currentTime = 0
+	if running {
+		done <- true
+	}
+	running = false
+	if report {
+		sendStatus()
+	}
+}
+func sendStatus() {
 	//Send current
 	if len(presentations) > presentation && presentation >= 0 {
-		conn.Send([]byte("current|" + presentations[presentation]))
-		if AUTOSTART {
-			conn.Send([]byte("start|start"))
-		}
+		server.BroadcastToClients(nil, []byte("current|"+presentations[presentation]))
 	} else {
-		conn.Send([]byte("no_current|no_current"))
-		conn.Send([]byte("stop|stop"))
-		conn.Send([]byte("zero|zero"))
+		server.BroadcastToClients(nil, []byte("no_current|no_current"))
+		reset(false)
 	}
 
 	//Send next
 	if len(presentations) > presentation+1 {
-		conn.Send([]byte("next|" + presentations[presentation+1]))
+		server.BroadcastToClients(nil, []byte("next|"+presentations[presentation+1]))
 	} else {
-		conn.Send([]byte("no_next|no_next"))
+		server.BroadcastToClients(nil, []byte("no_next|no_next"))
 	}
+
+	//Calculate time
+	var remainingTime = (timeout*60 - currentTime)
+	var negate = false
+	if remainingTime < 0 {
+		negate = true
+		remainingTime = -remainingTime
+	}
+	var minutes = remainingTime / 60
+	var seconds = remainingTime - minutes*60
+	var result = ""
+	if negate {
+		result += "-"
+	}
+	result += fmt.Sprintf("%02d", minutes)
+	result += ":"
+	result += fmt.Sprintf("%02d", seconds)
+	server.BroadcastToClients(nil, []byte("time|"+result))
+	server.BroadcastToClients(nil, []byte("timeRed|"+webtools.FormatByBool(negate, "true", "false")))
 }

@@ -1,10 +1,7 @@
 {
     "compilerOptions": {
         "target": "es2017",
-        "sourceMap": true
+        "sourceMap": true,
     },
-    "include": [
-        "./formWebScripts/js/*.ts",
-        "./formWebScripts/js/*.d.ts",
-        "./*.ts"]
+    "include": ["./formWebScripts/js/*.ts", "./formWebScripts/js/*.d.ts", "*.ts"],
 }
