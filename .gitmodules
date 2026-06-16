@@ -1,3 +1,6 @@
 [submodule "FormWebScripts"]
 	path = FormWebScripts
-	url = https://github.com/kolojar/FormWebScripts.git
+	url = https://github.com/kolojar/FormWebScripts
+[submodule "Webtools"]
+	path = Webtools
+	url = https://github.com/kolojar/Go-Webtools.git

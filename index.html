@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Dashboard</title>
+        <link rel="stylesheet" href="./FormWebScripts/css/formStyle.css" />
+        <style>
+            header,
+            footer {
+                overflow: hidden;
+                text-align: center;
+                margin: 4px;
+            }
+            header > *,
+            footer > * {
+                width: max-content;
+                display: flex;
+                animation: scroll 10s linear infinite;
+            }
+            @keyframes scroll {
+                0% {
+                    transform: translateX(0);
+                }
+                20% {
+                    transform: translateX(0);
+                }
+                100% {
+                    transform: translateX(-100%);
+                }
+            }
+            h1 {
+                font-size: 10vh;
+            }
+            pre {
+                margin: 0px;
+            }
+        </style>
+    </head>
+    <body>
+        <header>
+            <h1>
+                <pre>Aktuálně prezentuje: </pre>
+                <span id="current"></span>
+            </h1>
+        </header>
+        <main style="display: grid; place-items: center">
+            <h1 style="font-size: 30vh; font-weight: bold" id="time">00:00</h1>
+        </main>
+        <footer>
+            <h1>
+                <pre>Bude prezentovat: </pre>
+                <span id="next"></span>
+            </h1>
+        </footer>
+    </body>
+    <script type="module" src="script.js"></script>
+</html>
