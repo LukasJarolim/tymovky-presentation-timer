@@ -67,7 +67,7 @@ func main() {
 	server = httptools.NewWebSocketServer(
 		"127.0.0.1:8080",
 		func(conn *httptools.WebSocketServerConn, data []byte, status webtools.NetworkStatus, isBinary bool) {
-			sendStatus()
+			sendStatus(false)
 		},
 		func(server *httptools.Server, w http.ResponseWriter, r *http.Request, params map[string]string) bool {
 			return false
@@ -97,7 +97,7 @@ func main() {
 			if autostart {
 				start()
 			}
-			sendStatus()
+			sendStatus(false)
 			continue
 		} else if command == "next" || command == "n" {
 			//Next client
@@ -106,11 +106,11 @@ func main() {
 			if autostart {
 				start()
 			}
-			sendStatus()
+			sendStatus(false)
 			continue
 		} else if command == "update" || command == "u" {
 			//Refresh clients
-			sendStatus()
+			sendStatus(false)
 			continue
 		} else if command == "start" || command == "s" {
 			start()
@@ -127,7 +127,7 @@ func main() {
 				ticker.Stop()
 			}
 			running = false
-			sendStatus()
+			sendStatus(false)
 			continue
 		} else if command == "autostart" || command == "a" {
 			autostart = !autostart
@@ -146,7 +146,7 @@ func start() {
 			case <-ticker.C:
 				{
 					currentTime++
-					sendStatus()
+					sendStatus(true)
 				}
 			case <-done:
 				{
@@ -156,7 +156,7 @@ func start() {
 		}
 	}()
 	running = true
-	sendStatus()
+	sendStatus(false)
 }
 
 func reset(report bool) {
@@ -169,23 +169,27 @@ func reset(report bool) {
 	}
 	running = false
 	if report {
-		sendStatus()
+		sendStatus(false)
 	}
 }
-func sendStatus() {
+func sendStatus(timeOnly bool) {
 	//Send current
-	if len(presentations) > presentation && presentation >= 0 {
-		server.BroadcastToClients(nil, []byte("current|"+presentations[presentation]))
-	} else {
-		server.BroadcastToClients(nil, []byte("no_current|no_current"))
-		reset(false)
+	if !timeOnly {
+		if len(presentations) > presentation && presentation >= 0 {
+			server.BroadcastToClients(nil, []byte("current|"+presentations[presentation]))
+		} else {
+			server.BroadcastToClients(nil, []byte("no_current|no_current"))
+			reset(false)
+		}
 	}
 
 	//Send next
-	if len(presentations) > presentation+1 {
-		server.BroadcastToClients(nil, []byte("next|"+presentations[presentation+1]))
-	} else {
-		server.BroadcastToClients(nil, []byte("no_next|no_next"))
+	if !timeOnly {
+		if len(presentations) > presentation+1 {
+			server.BroadcastToClients(nil, []byte("next|"+presentations[presentation+1]))
+		} else {
+			server.BroadcastToClients(nil, []byte("no_next|no_next"))
+		}
 	}
 
 	//Calculate time
