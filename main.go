@@ -79,7 +79,7 @@ func main() {
 	//Start input loop
 	for server.IsAlive() {
 		//Get command
-		commandBytes, err := webtools.ReadLineFromConsole("Enter command [stop-sv/back(b)/next(n)/update(u)/start(s)/pause(p)/reset(r)/autostart(a)]: ")
+		commandBytes, err := webtools.ReadLineFromConsole("Enter command {" + strconv.Itoa(presentation+1) + " / " + strconv.Itoa(len(presentations)) + "} [stop-sv/back(b)/next(n)/update(u)/start(s)/pause(p)/reset(r)/autostart(a)]: ")
 		if err != nil {
 			fmt.Println("Invalid command input: " + err.Error())
 			break
@@ -101,7 +101,9 @@ func main() {
 			continue
 		} else if command == "next" || command == "n" {
 			//Next client
-			presentation++
+			if presentation < len(presentations) {
+				presentation++
+			}
 			reset(true)
 			if autostart {
 				start()
@@ -117,7 +119,8 @@ func main() {
 			continue
 		} else if command == "reset" || command == "r" {
 			wasRunning := running
-			reset(true)
+			reset(false)
+			sendStatus(true)
 			if wasRunning {
 				start()
 			}
