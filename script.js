@@ -1,10 +1,12 @@
 import { LanguageManager } from "./FormWebScripts/js/languageManager.js";
 import { GlobalDialogManager } from "./FormWebScripts/js/formDialogScript.js";
-import { WebSocketConnection, WebSocketConnectionMessageType } from "./FormWebScripts/js/serverComunication.js";
+import { WebSocketConnection, WebSocketConnectionMessageType, } from "./FormWebScripts/js/serverComunication.js";
 const currentSpan = document.getElementById("current");
 const nextSpan = document.getElementById("next");
 const timeSpan = document.getElementById("time");
 const audioCtx = new AudioContext();
+const currentTimeouts = [];
+const nextTimeouts = [];
 function startApp() {
     const conn = new WebSocketConnection("", "./websocket", new LanguageManager("en", false), true);
     conn.AddListener((t, data) => {
@@ -24,10 +26,6 @@ function startApp() {
                 if (currentSpan.innerText != split[1]) {
                     playGong();
                     resetAnim();
-                    currentSpan.classList.add("red");
-                    setTimeout(() => {
-                        currentSpan.classList.remove("red");
-                    }, 10000);
                 }
                 currentSpan.innerText = split[1];
                 break;
@@ -49,10 +47,6 @@ function startApp() {
                 resetAnim();
                 if (currentSpan.innerText != "-") {
                     playGong();
-                    currentSpan.classList.add("red");
-                    setTimeout(() => {
-                        currentSpan.classList.remove("red");
-                    }, 10000);
                 }
                 currentSpan.innerText = "-";
                 break;
@@ -60,22 +54,12 @@ function startApp() {
             case "next": {
                 if (nextSpan.innerText != split[1]) {
                     resetAnim();
-                    nextSpan.classList.add("red");
-                    setTimeout(() => {
-                        nextSpan.classList.remove("red");
-                    }, 10000);
                 }
                 nextSpan.innerText = split[1];
                 break;
             }
             case "no_next": {
                 resetAnim();
-                if (nextSpan.innerText != "-") {
-                    nextSpan.classList.add("red");
-                    setTimeout(() => {
-                        nextSpan.classList.remove("red");
-                    }, 10000);
-                }
                 nextSpan.innerText = "-";
                 break;
             }
@@ -94,6 +78,20 @@ function resetAnim() {
     nextSpan.parentElement.style.animation = "none";
     void nextSpan.parentElement.offsetHeight;
     nextSpan.parentElement.style.animation = "";
+    currentSpan.classList.add("red");
+    while (currentTimeouts.length > 0) {
+        clearTimeout(currentTimeouts.pop());
+    }
+    currentTimeouts.push(setTimeout(() => {
+        currentSpan.classList.remove("red");
+    }, 10000));
+    nextSpan.classList.add("red");
+    while (nextTimeouts.length > 0) {
+        clearTimeout(nextTimeouts.pop());
+    }
+    nextTimeouts.push(setTimeout(() => {
+        nextSpan.classList.remove("red");
+    }, 10000));
 }
 function playGong() {
     if (audioCtx.state === "suspended")
